@@ -16,9 +16,11 @@ import com.example.carservice.pricing.rule.FixedDiscountRule;
 import com.example.carservice.pricing.rule.PercentageDiscountRule;
 import com.example.carservice.pricing.rule.UrgentSurchargeRule;
 import com.example.carservice.repository.CarRepository;
+import com.example.carservice.repository.CustomerRepository;
 import com.example.carservice.repository.MechanicRepository;
 import com.example.carservice.repository.RepairOrderRepository;
 import com.example.carservice.repository.memory.InMemoryCarRepository;
+import com.example.carservice.repository.memory.InMemoryCustomerRepository;
 import com.example.carservice.repository.memory.InMemoryMechanicRepository;
 import com.example.carservice.repository.memory.InMemoryRepairOrderRepository;
 import com.example.carservice.service.GiftPolicy;
@@ -55,6 +57,7 @@ public class CarServiceDemo {
     private static String otherBusyOrderId = "order-other-busy";
     private static String forbiddenTransitionOrderId = "order-forbidden-transition";
     private static String missingOrderId = "order-missing";
+    private static String duplicateOrderId = "order-duplicate";
     private static String washerFluidGiftOrderId = "order-gift-washer-fluid";
     private static String interiorCleaningGiftOrderId = "order-gift-interior-cleaning";
     private static String discountVoucherGiftOrderId = "order-gift-discount-voucher";
@@ -94,12 +97,12 @@ public class CarServiceDemo {
     private static String washerFluidLabel = "Washer fluid gift tier";
     private static String interiorCleaningLabel = "Interior cleaning gift tier";
     private static String voucherLabel = "Discount voucher gift tier";
-    private static String noGiftLabel = "No gift";
     private static String minimumPriceLabel = "100% discount with minimum price";
     private static String oldCarDiscountLabel = "Old-car discount (5%)";
     private static String fixedThenPercentLabel = "Fixed discount, then percentage discount";
     private static String percentThenFixedLabel = "Percentage discount, then fixed discount";
     private static String customStageLabel = "Custom surcharge stage before percentage discount";
+    private static String duplicateOrderLabel = "Creating a duplicate order";
     private static String duplicateVinLabel = "Duplicate VIN";
     private static String emptyApprovalLabel = "Approving an empty order";
     private static String missingMechanicStartLabel = "Starting without an assigned mechanic";
@@ -133,14 +136,15 @@ public class CarServiceDemo {
 
     public static void main(String[] args) {
         CarRepository carRepository = new InMemoryCarRepository();
+        CustomerRepository customerRepository = new InMemoryCustomerRepository();
         MechanicRepository mechanicRepository = new InMemoryMechanicRepository();
         RepairOrderRepository repairOrderRepository = new InMemoryRepairOrderRepository();
         PriceCalculator priceCalculator = new PriceCalculator(
-                List.of(new UrgentSurchargeRule()),
-                AppConstants.minimumPrice);
+                List.of(new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor())),
+                AppConstants.minimumPrice());
         GiftPolicy giftPolicy = new GiftPolicy();
         RegistrationService registrationService =
-                new RegistrationService(carRepository, mechanicRepository);
+                new RegistrationService(customerRepository, carRepository, mechanicRepository);
         RepairOrderService repairOrderService = new RepairOrderService(
                 repairOrderRepository,
                 carRepository,
@@ -148,19 +152,48 @@ public class CarServiceDemo {
                 priceCalculator,
                 giftPolicy);
 
-        System.out.println(String.format(scenarioHeadingFormat, registrationHeading));
         Customer customer = new Customer(customerId, customerName, customerPhone);
-        registrationService.registerCustomer(customer);
-        printRegistration(customerRegistered);
         Car car = new Car(carVin, carMake, carModel, carYear, customer);
-        registrationService.registerCar(car);
-        printRegistration(carRegistered);
         Mechanic generalMechanic =
                 new Mechanic(generalMechanicId, generalMechanicName, MechanicSpecialization.GENERAL);
         Mechanic engineMechanic =
                 new Mechanic(engineMechanicId, engineMechanicName, MechanicSpecialization.ENGINE);
         Mechanic brakesMechanic =
                 new Mechanic(brakesMechanicId, brakesMechanicName, MechanicSpecialization.BRAKES);
+
+        RepairOrder completedOrder = runRegistrationAndLifecycle(
+                registrationService,
+                repairOrderService,
+                customer,
+                car,
+                generalMechanic,
+                engineMechanic,
+                brakesMechanic);
+        RepairOrder normalOrder = runPricingScenarios(repairOrderService, car);
+        runRuleExtensionScenario(normalOrder);
+        runRuleOrderingScenario(normalOrder);
+        runNegativeScenarios(
+                registrationService,
+                repairOrderService,
+                completedOrder,
+                car,
+                engineMechanic,
+                brakesMechanic);
+    }
+
+    private static RepairOrder runRegistrationAndLifecycle(
+            RegistrationService registrationService,
+            RepairOrderService repairOrderService,
+            Customer customer,
+            Car car,
+            Mechanic generalMechanic,
+            Mechanic engineMechanic,
+            Mechanic brakesMechanic) {
+        System.out.println(String.format(scenarioHeadingFormat, registrationHeading));
+        registrationService.registerCustomer(customer);
+        printRegistration(customerRegistered);
+        registrationService.registerCar(car);
+        printRegistration(carRegistered);
         registrationService.registerMechanic(generalMechanic);
         printRegistration(generalMechanicRegistered);
         registrationService.registerMechanic(engineMechanic);
@@ -172,15 +205,20 @@ public class CarServiceDemo {
         System.out.println(String.format(
                 fetchedOrderStatusFormat,
                 repairOrderService.getOrder(completedOrderId).getStatus()));
+        return completedOrder;
+    }
 
+    private static RepairOrder runPricingScenarios(
+            RepairOrderService repairOrderService,
+            Car car) {
         System.out.println(String.format(scenarioHeadingFormat, pricingHeading));
         RepairOrder normalOrder = createPricedOrder(repairOrderService, normalOrderId, car, false);
         printPrice(normalLabel, repairOrderService, normalOrderId);
-        RepairOrder urgentOrder = createPricedOrder(repairOrderService, urgentOrderId, car, true);
+        createPricedOrder(repairOrderService, urgentOrderId, car, true);
         printPrice(urgentLabel, repairOrderService, urgentOrderId);
         printGifts(repairOrderService, car);
 
-        RepairOrder minimumPriceOrder = repairOrderService.createOrder(minimumPriceOrderId, carVin);
+        repairOrderService.createOrder(minimumPriceOrderId, carVin);
         repairOrderService.addWork(
                 minimumPriceOrderId,
                 new ServiceWork(
@@ -190,35 +228,41 @@ public class CarServiceDemo {
                         MechanicSpecialization.GENERAL));
         PriceCalculator fullDiscountCalculator = new PriceCalculator(
                 List.of(new PercentageDiscountRule(fullDiscountPercent)),
-                AppConstants.minimumPrice);
+                AppConstants.minimumPrice());
         System.out.println(String.format(
                 scenarioHeadingFormat,
                 minimumHeading));
         System.out.println(String.format(
                 priceScenarioFormat,
                 minimumPriceLabel,
-                fullDiscountCalculator.calculateFinalPrice(minimumPriceOrder)));
+                fullDiscountCalculator.calculateFinalPrice(
+                        repairOrderService.getOrder(minimumPriceOrderId))));
+        return normalOrder;
+    }
 
+    private static void runRuleExtensionScenario(RepairOrder normalOrder) {
         System.out.println(String.format(scenarioHeadingFormat, extensionHeading));
         PriceCalculator oldCarCalculator = new PriceCalculator(
-                List.of(new OldCarDiscountRule()),
-                AppConstants.minimumPrice);
+                List.of(new OldCarDiscountRule(currentYear, oldCarAgeLimit, discountPercent)),
+                AppConstants.minimumPrice());
         System.out.println(String.format(
                 priceScenarioFormat,
                 oldCarDiscountLabel,
                 oldCarCalculator.calculateFinalPrice(normalOrder)));
+    }
 
+    private static void runRuleOrderingScenario(RepairOrder normalOrder) {
         System.out.println(String.format(scenarioHeadingFormat, orderingHeading));
         PriceCalculator fixedThenPercentCalculator = new PriceCalculator(
                 List.of(
                         new FixedDiscountRule(fixedDiscountAmount),
                         new PercentageDiscountRule(discountPercent)),
-                AppConstants.minimumPrice);
+                AppConstants.minimumPrice());
         PriceCalculator percentThenFixedCalculator = new PriceCalculator(
                 List.of(
                         new PercentageDiscountRule(discountPercent),
                         new FixedDiscountRule(fixedDiscountAmount)),
-                AppConstants.minimumPrice);
+                AppConstants.minimumPrice());
         System.out.println(String.format(
                 priceScenarioFormat,
                 fixedThenPercentLabel,
@@ -231,20 +275,11 @@ public class CarServiceDemo {
                 List.of(
                         new PercentageDiscountRule(discountPercent),
                         new DemonstrationSurchargeRule(customSurchargeAmount)),
-                AppConstants.minimumPrice);
+                AppConstants.minimumPrice());
         System.out.println(String.format(
                 priceScenarioFormat,
                 customStageLabel,
                 customStageCalculator.calculateFinalPrice(normalOrder)));
-
-        System.out.println(String.format(scenarioHeadingFormat, negativeHeading));
-        runNegativeScenarios(
-                registrationService,
-                repairOrderService,
-                completedOrder,
-                car,
-                engineMechanic,
-                brakesMechanic);
     }
 
     private static RepairOrder runCompletedOrder(
@@ -279,7 +314,7 @@ public class CarServiceDemo {
             String orderId,
             Car car,
             boolean urgent) {
-        RepairOrder order = repairOrderService.createOrder(orderId, car.getVin());
+        repairOrderService.createOrder(orderId, car.getVin());
         repairOrderService.addWork(orderId, createEngineWork());
         repairOrderService.addWork(orderId, createBrakesWork());
         if (urgent) {
@@ -341,7 +376,7 @@ public class CarServiceDemo {
                 giftFormat,
                 label,
                 present.getPartsTotal(),
-                gift.map(Gift::getName).orElse(noGiftLabel)));
+                gift.map(Gift::getName).orElse(AppConstants.noGiftLabel())));
     }
 
     private static void runNegativeScenarios(
@@ -351,6 +386,11 @@ public class CarServiceDemo {
             Car car,
             Mechanic engineMechanic,
             Mechanic brakesMechanic) {
+        System.out.println(String.format(scenarioHeadingFormat, negativeHeading));
+        repairOrderService.createOrder(duplicateOrderId, carVin);
+        expectError(duplicateOrderLabel, () ->
+                repairOrderService.createOrder(duplicateOrderId, carVin));
+
         expectError(duplicateVinLabel, () -> registrationService.registerCar(
                 new Car(carVin, carMake, carModel, carYear, car.getOwner())));
 

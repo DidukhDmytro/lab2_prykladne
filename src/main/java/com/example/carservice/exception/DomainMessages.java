@@ -1,41 +1,98 @@
 package com.example.carservice.exception;
 
 public class DomainMessages {
-    public static String invalidVin = "VIN must not be null or blank.";
-    public static String invalidPhoneNumber = "Phone number must not be null or blank.";
-    public static String invalidCustomerId = "Customer identifier must not be null or blank.";
-    public static String invalidCustomerName = "Customer name must not be null or blank.";
-    public static String ownerRequired = "Car owner is required.";
-    public static String invalidServiceWorkDescription =
+    private static String invalidVin = "VIN must not be null or blank.";
+    private static String invalidPhoneNumber = "Phone number must not be null or blank.";
+    private static String invalidCustomerId = "Customer identifier must not be null or blank.";
+    private static String invalidCustomerName = "Customer name must not be null or blank.";
+    private static String ownerRequired = "Car owner is required.";
+    private static String invalidServiceWorkDescription =
             "Service work description must not be null or blank.";
-    public static String costsMustBeNonNegative = "Parts and labor costs must not be negative.";
-    public static String specializationRequired = "Mechanic specialization is required.";
-    public static String invalidRepairOrderId = "Repair order identifier must not be null or blank.";
-    public static String carRequired = "A car is required for a repair order.";
-    public static String invalidMechanicId = "Mechanic identifier must not be null or blank.";
-    public static String invalidMechanicName = "Mechanic name must not be null or blank.";
-    public static String priorityRequired = "Order priority is required.";
-    public static String costsRequired = "Parts and labor costs are required.";
-    public static String workAlreadyCompleted = "Service work is already completed.";
-    public static String invalidDiagnoseStatus = "Only created orders can be diagnosed.";
-    public static String invalidApproveStatus = "Only diagnosed orders can be approved.";
-    public static String emptyOrder = "An order cannot be approved without service work.";
-    public static String invalidProgressStatus = "Only approved orders can start progress.";
-    public static String mechanicRequired = "A mechanic must be assigned before work starts.";
-    public static String invalidCompleteStatus = "Only in-progress orders can be completed.";
-    public static String unfinishedWork = "An order cannot be completed with unfinished work.";
-    public static String closedOrder = "A completed or cancelled order cannot be modified.";
-    public static String invalidCancelStatus = "Cannot cancel order in status: ";
-    public static String pricingRulesRequired = "Pricing rules are required.";
-    public static String pricingRuleRequired = "Pricing rules must not contain null.";
-    public static String minimumPriceRequired = "Minimum price is required.";
-    public static String pricingOrderRequired = "A repair order is required for price calculation.";
-    public static String invalidUrgentSurchargeFactor = "Urgent surcharge factor must not be negative.";
-    public static String percentageRequired = "Discount percentage is required.";
-    public static String percentageOutOfRange = "Discount percentage must be between zero and one hundred.";
-    public static String fixedDiscountRequired = "Fixed discount amount is required.";
-    public static String negativeFixedDiscount = "Fixed discount amount must not be negative.";
-    public static String giftOrderRequired = "A repair order is required to create a present.";
+    private static String costsMustBeNonNegative = "Parts and labor costs must not be negative.";
+    private static String specializationRequired = "Mechanic specialization is required.";
+    private static String invalidRepairOrderId = "Repair order identifier must not be null or blank.";
+    private static String carRequired = "A car is required for a repair order.";
+    private static String serviceWorkRequired = "Service work is required.";
+    private static String invalidMechanicId = "Mechanic identifier must not be null or blank.";
+    private static String invalidMechanicName = "Mechanic name must not be null or blank.";
+    private static String mechanicRequiredForAssignment = "A mechanic is required for assignment.";
+    private static String mechanicNotCompatible = "The mechanic is not compatible with the order work.";
+    private static String priorityRequired = "Order priority is required.";
+    private static String costsRequired = "Parts and labor costs are required.";
+    private static String workAlreadyCompleted = "Service work is already completed.";
+    private static String invalidDiagnoseStatus = "Only created orders can be diagnosed.";
+    private static String invalidApproveStatus = "Only diagnosed orders can be approved.";
+    private static String emptyOrder = "An order cannot be approved without service work.";
+    private static String invalidProgressStatus = "Only approved orders can start progress.";
+    private static String mechanicRequired = "A mechanic must be assigned before work starts.";
+    private static String invalidCompleteWorkStatus = "Work can only be completed on in-progress orders.";
+    private static String invalidCompleteStatus = "Only in-progress orders can be completed.";
+    private static String workIndexOutOfRange = "Work index is outside the order work list.";
+    private static String unfinishedWork = "An order cannot be completed with unfinished work.";
+    private static String closedOrder = "A completed or cancelled order cannot be modified.";
+    private static String invalidCancelStatus = "Cannot cancel order in status: ";
+    private static String pricingRulesRequired = "Pricing rules are required.";
+    private static String pricingRuleRequired = "Pricing rules must not contain null.";
+    private static String minimumPriceRequired = "Minimum price is required.";
+    private static String negativeMinimumPrice = "Minimum price must not be negative.";
+    private static String pricingOrderRequired = "A repair order is required for price calculation.";
+    private static String pricingContextRequired = "A pricing context is required.";
+    private static String pricingRuleResultRequired = "Pricing rules must return a result.";
+    private static String urgentSurchargeFactorRequired = "Urgent surcharge factor is required.";
+    private static String invalidUrgentSurchargeFactor = "Urgent surcharge factor must not be negative.";
+    private static String oldCarCurrentYearRequired = "Current year must be greater than zero.";
+    private static String oldCarAgeLimitInvalid = "Old-car age limit must not be negative.";
+    private static String percentageRequired = "Discount percentage is required.";
+    private static String percentageOutOfRange = "Discount percentage must be between zero and one hundred.";
+    private static String fixedDiscountRequired = "Fixed discount amount is required.";
+    private static String negativeFixedDiscount = "Fixed discount amount must not be negative.";
+    private static String giftOrderRequired = "A repair order is required to create a present.";
+
+    public static String invalidVin() { return invalidVin; }
+    public static String invalidPhoneNumber() { return invalidPhoneNumber; }
+    public static String invalidCustomerId() { return invalidCustomerId; }
+    public static String invalidCustomerName() { return invalidCustomerName; }
+    public static String ownerRequired() { return ownerRequired; }
+    public static String invalidServiceWorkDescription() { return invalidServiceWorkDescription; }
+    public static String costsMustBeNonNegative() { return costsMustBeNonNegative; }
+    public static String specializationRequired() { return specializationRequired; }
+    public static String invalidRepairOrderId() { return invalidRepairOrderId; }
+    public static String carRequired() { return carRequired; }
+    public static String serviceWorkRequired() { return serviceWorkRequired; }
+    public static String invalidMechanicId() { return invalidMechanicId; }
+    public static String invalidMechanicName() { return invalidMechanicName; }
+    public static String mechanicRequiredForAssignment() { return mechanicRequiredForAssignment; }
+    public static String mechanicNotCompatible() { return mechanicNotCompatible; }
+    public static String priorityRequired() { return priorityRequired; }
+    public static String costsRequired() { return costsRequired; }
+    public static String workAlreadyCompleted() { return workAlreadyCompleted; }
+    public static String invalidDiagnoseStatus() { return invalidDiagnoseStatus; }
+    public static String invalidApproveStatus() { return invalidApproveStatus; }
+    public static String emptyOrder() { return emptyOrder; }
+    public static String invalidProgressStatus() { return invalidProgressStatus; }
+    public static String mechanicRequired() { return mechanicRequired; }
+    public static String invalidCompleteWorkStatus() { return invalidCompleteWorkStatus; }
+    public static String invalidCompleteStatus() { return invalidCompleteStatus; }
+    public static String workIndexOutOfRange() { return workIndexOutOfRange; }
+    public static String unfinishedWork() { return unfinishedWork; }
+    public static String closedOrder() { return closedOrder; }
+    public static String invalidCancelStatus() { return invalidCancelStatus; }
+    public static String pricingRulesRequired() { return pricingRulesRequired; }
+    public static String pricingRuleRequired() { return pricingRuleRequired; }
+    public static String minimumPriceRequired() { return minimumPriceRequired; }
+    public static String negativeMinimumPrice() { return negativeMinimumPrice; }
+    public static String pricingOrderRequired() { return pricingOrderRequired; }
+    public static String pricingContextRequired() { return pricingContextRequired; }
+    public static String pricingRuleResultRequired() { return pricingRuleResultRequired; }
+    public static String urgentSurchargeFactorRequired() { return urgentSurchargeFactorRequired; }
+    public static String invalidUrgentSurchargeFactor() { return invalidUrgentSurchargeFactor; }
+    public static String oldCarCurrentYearRequired() { return oldCarCurrentYearRequired; }
+    public static String oldCarAgeLimitInvalid() { return oldCarAgeLimitInvalid; }
+    public static String percentageRequired() { return percentageRequired; }
+    public static String percentageOutOfRange() { return percentageOutOfRange; }
+    public static String fixedDiscountRequired() { return fixedDiscountRequired; }
+    public static String negativeFixedDiscount() { return negativeFixedDiscount; }
+    public static String giftOrderRequired() { return giftOrderRequired; }
 
     private DomainMessages() {
     }

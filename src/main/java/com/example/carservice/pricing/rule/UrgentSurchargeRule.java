@@ -1,36 +1,37 @@
 package com.example.carservice.pricing.rule;
 
-import com.example.carservice.config.AppConstants;
-import com.example.carservice.domain.OrderPriority;
-import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
+import com.example.carservice.pricing.PricingContext;
 import com.example.carservice.pricing.PricingRule;
-import com.example.carservice.pricing.PricingStage;
 import java.math.BigDecimal;
 
 public class UrgentSurchargeRule implements PricingRule {
     private static BigDecimal zeroPrice = BigDecimal.ZERO;
+    private BigDecimal laborSurchargeFactor;
 
-    public UrgentSurchargeRule() {
-        if (AppConstants.urgentLaborSurchargeFactor.compareTo(zeroPrice) < 0) {
-            throw new InvalidArgumentException(DomainMessages.invalidUrgentSurchargeFactor);
+    public UrgentSurchargeRule(BigDecimal laborSurchargeFactor) {
+        if (laborSurchargeFactor == null) {
+            throw new InvalidArgumentException(DomainMessages.urgentSurchargeFactorRequired());
         }
+        if (laborSurchargeFactor.compareTo(zeroPrice) < 0) {
+            throw new InvalidArgumentException(DomainMessages.invalidUrgentSurchargeFactor());
+        }
+        this.laborSurchargeFactor = laborSurchargeFactor;
     }
 
     @Override
-    public PricingStage getStage() {
-        return PricingStage.SURCHARGE;
+    public int getPriority() {
+        return SURCHARGE_PRIORITY;
     }
 
     @Override
-    public BigDecimal apply(RepairOrder order, BigDecimal currentTotal) {
-        if (order == null || currentTotal == null) {
-            throw new InvalidArgumentException(DomainMessages.pricingOrderRequired);
+    public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
+        if (context == null || currentTotal == null) {
+            throw new InvalidArgumentException(DomainMessages.pricingOrderRequired());
         }
-        if (order.getPriority() == OrderPriority.URGENT) {
-            return currentTotal.add(order.calculateLaborTotal()
-                    .multiply(AppConstants.urgentLaborSurchargeFactor));
+        if (context.isUrgent()) {
+            return currentTotal.add(context.getLaborTotal().multiply(laborSurchargeFactor));
         }
         return currentTotal;
     }

@@ -1,10 +1,12 @@
 package com.example.carservice.pricing;
 
-import com.example.carservice.domain.RepairOrder;
 import java.math.BigDecimal;
 
 public interface PricingRule {
-    PricingStage getStage();
+    int SURCHARGE_PRIORITY = 100;
+    int DISCOUNT_PRIORITY = 200;
 
-    BigDecimal apply(RepairOrder order, BigDecimal currentTotal);
+    int getPriority();
+
+    BigDecimal apply(PricingContext context, BigDecimal currentTotal);
 }

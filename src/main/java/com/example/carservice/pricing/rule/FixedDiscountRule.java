@@ -1,10 +1,9 @@
 package com.example.carservice.pricing.rule;
 
-import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
+import com.example.carservice.pricing.PricingContext;
 import com.example.carservice.pricing.PricingRule;
-import com.example.carservice.pricing.PricingStage;
 import java.math.BigDecimal;
 
 public class FixedDiscountRule implements PricingRule {
@@ -14,23 +13,23 @@ public class FixedDiscountRule implements PricingRule {
 
     public FixedDiscountRule(BigDecimal amount) {
         if (amount == null) {
-            throw new InvalidArgumentException(DomainMessages.fixedDiscountRequired);
+            throw new InvalidArgumentException(DomainMessages.fixedDiscountRequired());
         }
         if (amount.compareTo(zeroPrice) < 0) {
-            throw new InvalidArgumentException(DomainMessages.negativeFixedDiscount);
+            throw new InvalidArgumentException(DomainMessages.negativeFixedDiscount());
         }
         this.amount = amount;
     }
 
     @Override
-    public PricingStage getStage() {
-        return PricingStage.DISCOUNT;
+    public int getPriority() {
+        return DISCOUNT_PRIORITY;
     }
 
     @Override
-    public BigDecimal apply(RepairOrder order, BigDecimal currentTotal) {
-        if (order == null || currentTotal == null) {
-            throw new InvalidArgumentException(DomainMessages.pricingOrderRequired);
+    public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
+        if (context == null || currentTotal == null) {
+            throw new InvalidArgumentException(DomainMessages.pricingOrderRequired());
         }
         return currentTotal.subtract(amount).max(zeroPrice);
     }

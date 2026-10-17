@@ -3,6 +3,7 @@ package com.example.carservice.pricing.rule;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
+import com.example.carservice.app.OldCarDiscountRule;
 import com.example.carservice.config.AppConstants;
 import com.example.carservice.domain.Car;
 import com.example.carservice.domain.Customer;
@@ -10,10 +11,11 @@ import com.example.carservice.domain.MechanicSpecialization;
 import com.example.carservice.domain.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
+import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.pricing.PriceCalculator;
+import com.example.carservice.pricing.PricingContext;
 import com.example.carservice.pricing.PricingRule;
-import com.example.carservice.pricing.PricingStage;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +27,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 
 class PricingRuleTest {
     private String description = "Rule test work";
+    private BigDecimal discountPercent = new BigDecimal("5");
     private RepairOrder order;
 
     @BeforeEach
@@ -106,7 +109,7 @@ class PricingRuleTest {
         PriceCalculator calculator = new PriceCalculator(
                 List.of(
                         new PercentageDiscountRule(new BigDecimal("10")),
-                        new UrgentSurchargeRule(),
+                        new UrgentSurchargeRule(AppConstants.urgentLaborSurchargeFactor()),
                         new FixedDiscountRule(new BigDecimal("5"))),
                 BigDecimal.ZERO);
 
@@ -123,7 +126,7 @@ class PricingRuleTest {
         // Given
         BigDecimal base = order.calculateBaseTotal();
         BigDecimal surcharge = order.calculateLaborTotal()
-                .multiply(AppConstants.urgentLaborSurchargeFactor);
+                .multiply(AppConstants.urgentLaborSurchargeFactor());
         BigDecimal percent = new BigDecimal("10");
         order.changePriority(OrderPriority.URGENT);
 
@@ -139,6 +142,86 @@ class PricingRuleTest {
         // Then
         assertEquals(0, new BigDecimal("144.00").compareTo(surchargeThenDiscount));
         assertEquals(0, new BigDecimal("145.00").compareTo(discountThenSurcharge));
+    }
+
+    @Test
+    @DisplayName("Rejects a null urgent surcharge factor")
+    void rejectsNullUrgentSurchargeFactor() {
+        // Given
+        BigDecimal nullFactor = null;
+
+        // When
+        InvalidArgumentException exception = assertThrows(
+                InvalidArgumentException.class,
+                () -> new UrgentSurchargeRule(nullFactor));
+
+        // Then
+        assertEquals(DomainMessages.urgentSurchargeFactorRequired(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects a negative urgent surcharge factor")
+    void rejectsNegativeUrgentSurchargeFactor() {
+        // Given
+        BigDecimal negativeFactor = new BigDecimal("-0.01");
+
+        // When
+        InvalidArgumentException exception = assertThrows(
+                InvalidArgumentException.class,
+                () -> new UrgentSurchargeRule(negativeFactor));
+
+        // Then
+        assertEquals(DomainMessages.invalidUrgentSurchargeFactor(), exception.getMessage());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"0", "-1"})
+    @DisplayName("Rejects a non-positive current year for old-car discounts")
+    void rejectsInvalidOldCarCurrentYear(int invalidYear) {
+        // Given
+        Runnable constructRule = () ->
+                new OldCarDiscountRule(invalidYear, 10, discountPercent);
+
+        // When
+        InvalidArgumentException exception =
+                assertThrows(InvalidArgumentException.class, constructRule::run);
+
+        // Then
+        assertEquals(DomainMessages.oldCarCurrentYearRequired(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects a negative old-car age limit")
+    void rejectsNegativeOldCarAgeLimit() {
+        // Given
+        Runnable constructRule = () ->
+                new OldCarDiscountRule(2031, -1, discountPercent);
+
+        // When
+        InvalidArgumentException exception =
+                assertThrows(InvalidArgumentException.class, constructRule::run);
+
+        // Then
+        assertEquals(DomainMessages.oldCarAgeLimitInvalid(), exception.getMessage());
+    }
+
+    @ParameterizedTest(name = "year {0} produces {2} for a {1}-year-old car")
+    @CsvSource({
+            "2030,10,150.00",
+            "2031,10,142.50",
+            "2025,10,150.00"
+    })
+    @DisplayName("Applies old-car discount according to injected year and age limit")
+    void appliesOldCarDiscountForInjectedYear(int injectedYear, int ageLimit, String expected) {
+        // Given
+        OldCarDiscountRule rule =
+                new OldCarDiscountRule(injectedYear, ageLimit, discountPercent);
+
+        // When
+        BigDecimal result = rule.apply(PricingContext.from(order), order.calculateBaseTotal());
+
+        // Then
+        assertEquals(new BigDecimal(expected), result);
     }
 
     @Test
@@ -161,12 +244,12 @@ class PricingRuleTest {
         private BigDecimal discount = new BigDecimal("5.00");
 
         @Override
-        public PricingStage getStage() {
-            return PricingStage.DISCOUNT;
+        public int getPriority() {
+            return DISCOUNT_PRIORITY;
         }
 
         @Override
-        public BigDecimal apply(RepairOrder targetOrder, BigDecimal currentTotal) {
+        public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
             return currentTotal.subtract(discount);
         }
     }

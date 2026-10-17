@@ -1,14 +1,23 @@
 package com.example.carservice.domain;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.example.carservice.exception.DomainException;
+import com.example.carservice.exception.DomainMessages;
 import com.example.carservice.exception.InvalidArgumentException;
+import com.example.carservice.exception.InvalidStateTransitionException;
+import com.example.carservice.exception.MechanicNotCompatibleException;
 import com.example.carservice.exception.OrderModificationNotAllowedException;
 import java.math.BigDecimal;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.EnumSource;
 
 class DomainInvariantTest {
     private String customerId = "customer-domain";
@@ -117,6 +126,76 @@ class DomainInvariantTest {
     }
 
     @Test
+    @DisplayName("Rejects adding null service work")
+    void rejectsNullServiceWork() {
+        // Given
+        RepairOrder order = new RepairOrder("order-null-work", car);
+
+        // When
+        Runnable addNullWork = () -> order.addWork(null);
+
+        // Then
+        assertThrows(InvalidArgumentException.class, addNullWork::run);
+    }
+
+    @Test
+    @DisplayName("Rejects assigning a null mechanic")
+    void rejectsNullMechanicAssignment() {
+        // Given
+        RepairOrder order = new RepairOrder("order-null-mechanic", car);
+
+        // When
+        Runnable assignNullMechanic = () -> order.assignMechanic(null);
+
+        // Then
+        assertThrows(InvalidArgumentException.class, assignNullMechanic::run);
+    }
+
+    @Test
+    @DisplayName("Does not add incompatible work after mechanic assignment")
+    void rejectsIncompatibleWorkAfterMechanicAssignment() {
+        // Given
+        RepairOrder order = new RepairOrder("order-incompatible-work", car);
+        Mechanic mechanic =
+                new Mechanic("mechanic-engine", customerName, MechanicSpecialization.ENGINE);
+        ServiceWork incompatibleWork = createWork(MechanicSpecialization.BRAKES);
+        order.assignMechanic(mechanic);
+
+        // When
+        Runnable addIncompatibleWork = () -> order.addWork(incompatibleWork);
+
+        // Then
+        assertThrows(MechanicNotCompatibleException.class, addIncompatibleWork::run);
+        assertTrue(order.getWorks().isEmpty());
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "ENGINE,ENGINE",
+            "GENERAL,ENGINE",
+            "ENGINE,GENERAL",
+            "GENERAL,GENERAL"
+    })
+    @DisplayName("Allows compatible work after mechanic assignment")
+    void allowsCompatibleWorkAfterMechanicAssignment(
+            MechanicSpecialization mechanicSpecialization,
+            MechanicSpecialization workSpecialization) {
+        // Given
+        RepairOrder order = new RepairOrder("order-compatible-work", car);
+        Mechanic mechanic =
+                new Mechanic("mechanic-compatible", customerName, mechanicSpecialization);
+        ServiceWork compatibleWork = createWork(workSpecialization);
+        order.assignMechanic(mechanic);
+
+        // When
+        order.addWork(compatibleWork);
+
+        // Then
+        assertEquals(1, order.getWorks().size());
+        assertEquals(compatibleWork, order.getWorks().get(0));
+    }
+
+    @Test
     @DisplayName("Rejects null and negative service work costs")
     void rejectsInvalidCosts() {
         // Given
@@ -168,6 +247,97 @@ class DomainInvariantTest {
         assertThrows(
                 OrderModificationNotAllowedException.class,
                 changePriority::run);
+    }
+
+    @Test
+    @DisplayName("Completes work on an in-progress order")
+    void completesWorkWhileInProgress() {
+        // Given
+        RepairOrder order = createOrderInStatus(OrderStatus.IN_PROGRESS);
+        ServiceWork work = order.getWorks().get(0);
+
+        // When
+        order.completeWork(0);
+
+        // Then
+        assertEquals(WorkStatus.COMPLETED, work.getStatus());
+    }
+
+    @ParameterizedTest
+    @EnumSource(
+            value = OrderStatus.class,
+            names = {"CREATED", "DIAGNOSED", "APPROVED", "COMPLETED", "CANCELLED"})
+    @DisplayName("Rejects completing work outside in-progress status")
+    void rejectsCompletingWorkOutsideProgress(OrderStatus status) {
+        // Given
+        RepairOrder order = createOrderInStatus(status);
+        Class<? extends DomainException> expectedExceptionType =
+                status == OrderStatus.COMPLETED || status == OrderStatus.CANCELLED
+                        ? OrderModificationNotAllowedException.class
+                        : InvalidStateTransitionException.class;
+
+        // When
+        Runnable completeWork = () -> order.completeWork(0);
+
+        // Then
+        assertThrows(expectedExceptionType, completeWork::run);
+    }
+
+    @ParameterizedTest
+    @CsvSource({"-1", "1"})
+    @DisplayName("Rejects work indexes outside the order work list")
+    void rejectsOutOfRangeWorkIndex(int workIndex) {
+        // Given
+        RepairOrder order = createOrderInStatus(OrderStatus.IN_PROGRESS);
+        Runnable completeWork = () -> order.completeWork(workIndex);
+
+        // When
+        InvalidArgumentException exception =
+                assertThrows(InvalidArgumentException.class, completeWork::run);
+
+        // Then
+        assertEquals(DomainMessages.workIndexOutOfRange(), exception.getMessage());
+    }
+
+    private RepairOrder createOrderInStatus(OrderStatus status) {
+        RepairOrder order = new RepairOrder("order-complete-work", car);
+        order.addWork(new ServiceWork(
+                workDescription,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                MechanicSpecialization.GENERAL));
+        if (status == OrderStatus.CANCELLED) {
+            order.cancel();
+            return order;
+        }
+        if (status != OrderStatus.CREATED) {
+            order.diagnose();
+        }
+        if (status == OrderStatus.APPROVED
+                || status == OrderStatus.IN_PROGRESS
+                || status == OrderStatus.COMPLETED) {
+            order.approve();
+            order.assignMechanic(new Mechanic(
+                    "mechanic-complete-work",
+                    customerName,
+                    MechanicSpecialization.GENERAL));
+        }
+        if (status == OrderStatus.IN_PROGRESS || status == OrderStatus.COMPLETED) {
+            order.startProgress();
+        }
+        if (status == OrderStatus.COMPLETED) {
+            order.completeWork(0);
+            order.complete();
+        }
+        return order;
+    }
+
+    private ServiceWork createWork(MechanicSpecialization specialization) {
+        return new ServiceWork(
+                workDescription,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                specialization);
     }
 
     private class ExecutableCalls {

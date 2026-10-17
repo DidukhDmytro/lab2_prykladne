@@ -7,10 +7,11 @@ import com.example.carservice.domain.OrderPriority;
 import com.example.carservice.domain.Present;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
+import com.example.carservice.exception.EntityAlreadyExistsException;
 import com.example.carservice.exception.EntityNotFoundException;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.ServiceMessages;
-import com.example.carservice.pricing.PriceCalculator;
+import com.example.carservice.pricing.PricingPolicy;
 import com.example.carservice.repository.CarRepository;
 import com.example.carservice.repository.MechanicRepository;
 import com.example.carservice.repository.RepairOrderRepository;
@@ -19,37 +20,39 @@ import java.util.List;
 import java.util.Optional;
 
 public class RepairOrderService {
-    private static int firstWorkIndex = 0;
-
     private RepairOrderRepository repairOrderRepository;
     private CarRepository carRepository;
     private MechanicRepository mechanicRepository;
-    private PriceCalculator priceCalculator;
+    private PricingPolicy pricingPolicy;
     private GiftPolicy giftPolicy;
 
     public RepairOrderService(
             RepairOrderRepository repairOrderRepository,
             CarRepository carRepository,
             MechanicRepository mechanicRepository,
-            PriceCalculator priceCalculator,
+            PricingPolicy pricingPolicy,
             GiftPolicy giftPolicy) {
         if (repairOrderRepository == null
                 || carRepository == null
                 || mechanicRepository == null
-                || priceCalculator == null
+                || pricingPolicy == null
                 || giftPolicy == null) {
-            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired);
+            throw new InvalidArgumentException(ServiceMessages.serviceDependenciesRequired());
         }
         this.repairOrderRepository = repairOrderRepository;
         this.carRepository = carRepository;
         this.mechanicRepository = mechanicRepository;
-        this.priceCalculator = priceCalculator;
+        this.pricingPolicy = pricingPolicy;
         this.giftPolicy = giftPolicy;
     }
 
     public RepairOrder createOrder(String orderId, String vin) {
+        if (repairOrderRepository.findById(orderId).isPresent()) {
+            throw new EntityAlreadyExistsException(
+                    String.format(ServiceMessages.duplicateRepairOrder(), orderId));
+        }
         Car car = carRepository.findByVin(vin)
-                .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.carNotFound, vin)));
+                .orElseThrow(() -> new EntityNotFoundException(String.format(ServiceMessages.carNotFound(), vin)));
         return repairOrderRepository.save(new RepairOrder(orderId, car));
     }
 
@@ -85,7 +88,7 @@ public class RepairOrderService {
         RepairOrder order = getOrThrow(orderId);
         Mechanic mechanic = mechanicRepository.findById(mechanicId)
                 .orElseThrow(() -> new EntityNotFoundException(
-                        String.format(ServiceMessages.mechanicNotFound, mechanicId)));
+                        String.format(ServiceMessages.mechanicNotFound(), mechanicId)));
         order.assignMechanic(mechanic);
         return repairOrderRepository.save(order);
     }
@@ -98,10 +101,7 @@ public class RepairOrderService {
 
     public RepairOrder completeWork(String orderId, int workIndex) {
         RepairOrder order = getOrThrow(orderId);
-        if (workIndex < firstWorkIndex || workIndex >= order.getWorks().size()) {
-            throw new InvalidArgumentException(ServiceMessages.workIndexOutOfRange);
-        }
-        order.getWorks().get(workIndex).complete();
+        order.completeWork(workIndex);
         return repairOrderRepository.save(order);
     }
 
@@ -122,11 +122,11 @@ public class RepairOrderService {
     }
 
     public BigDecimal calculateBasePrice(String orderId) {
-        return priceCalculator.calculateBasePrice(getOrThrow(orderId));
+        return pricingPolicy.calculateBasePrice(getOrThrow(orderId));
     }
 
     public BigDecimal calculateFinalPrice(String orderId) {
-        return priceCalculator.calculateFinalPrice(getOrThrow(orderId));
+        return pricingPolicy.calculateFinalPrice(getOrThrow(orderId));
     }
 
     public Present createPresent(String orderId) {
@@ -136,6 +136,6 @@ public class RepairOrderService {
     private RepairOrder getOrThrow(String orderId) {
         Optional<RepairOrder> order = repairOrderRepository.findById(orderId);
         return order.orElseThrow(() -> new EntityNotFoundException(
-                String.format(ServiceMessages.repairOrderNotFound, orderId)));
+                String.format(ServiceMessages.repairOrderNotFound(), orderId)));
     }
 }
