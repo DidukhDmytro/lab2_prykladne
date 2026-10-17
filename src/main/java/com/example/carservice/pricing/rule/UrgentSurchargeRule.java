@@ -1,8 +1,8 @@
 package com.example.carservice.pricing.rule;
 
-import com.example.carservice.exception.DomainMessages;
-import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.pricing.PricingContext;
+import com.example.carservice.pricing.PricingException;
+import com.example.carservice.pricing.PricingMessages;
 import com.example.carservice.pricing.PricingRule;
 import java.math.BigDecimal;
 
@@ -12,10 +12,10 @@ public class UrgentSurchargeRule implements PricingRule {
 
     public UrgentSurchargeRule(BigDecimal laborSurchargeFactor) {
         if (laborSurchargeFactor == null) {
-            throw new InvalidArgumentException(DomainMessages.urgentSurchargeFactorRequired());
+            throw new PricingException(PricingMessages.urgentSurchargeFactorRequired());
         }
         if (laborSurchargeFactor.compareTo(zeroPrice) < 0) {
-            throw new InvalidArgumentException(DomainMessages.invalidUrgentSurchargeFactor());
+            throw new PricingException(PricingMessages.invalidUrgentSurchargeFactor());
         }
         this.laborSurchargeFactor = laborSurchargeFactor;
     }
@@ -28,7 +28,7 @@ public class UrgentSurchargeRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new InvalidArgumentException(DomainMessages.pricingOrderRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired());
         }
         if (context.isUrgent()) {
             return currentTotal.add(context.getLaborTotal().multiply(laborSurchargeFactor));

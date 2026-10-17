@@ -4,13 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.example.carservice.domain.Car;
-import com.example.carservice.domain.Customer;
-import com.example.carservice.domain.MechanicSpecialization;
-import com.example.carservice.domain.RepairOrder;
-import com.example.carservice.domain.ServiceWork;
-import com.example.carservice.exception.DomainMessages;
-import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.pricing.rule.FixedDiscountRule;
 import com.example.carservice.pricing.rule.PercentageDiscountRule;
 import java.math.BigDecimal;
@@ -21,19 +14,35 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 class PricingRuleEngineTest {
+    private static BigDecimal sampleLaborTotal = new BigDecimal("50.00");
+    private static BigDecimal samplePartsTotal = new BigDecimal("100.00");
+    private static BigDecimal negativeTotal = new BigDecimal("-0.01");
+    private static BigDecimal standaloneDiscountPercent = new BigDecimal("10");
+    private static BigDecimal standaloneExpectedPrice = new BigDecimal("135.00");
+    private static int sampleCarYear = 2020;
+
     private PricingContext context;
 
     @BeforeEach
     void setUp() {
-        Customer customer = new Customer("customer-engine", "Engine Customer", "555-0100");
-        Car car = new Car("VIN-ENGINE", "Test", "Model", 2020, customer);
-        RepairOrder order = new RepairOrder("order-engine", car);
-        order.addWork(new ServiceWork(
-                "Engine test work",
-                new BigDecimal("100.00"),
-                new BigDecimal("50.00"),
-                MechanicSpecialization.GENERAL));
-        context = PricingContext.from(order);
+        context = new PricingContext(sampleLaborTotal, samplePartsTotal, false, sampleCarYear);
+    }
+
+    @Test
+    @DisplayName("Runs directly with a standalone pricing context")
+    void runsWithoutRepairOrder() {
+        // Given
+        PricingContext standaloneContext =
+                new PricingContext(sampleLaborTotal, samplePartsTotal, false, sampleCarYear);
+        PricingRuleEngine engine = new PricingRuleEngine(
+                List.of(new PercentageDiscountRule(standaloneDiscountPercent)),
+                BigDecimal.ZERO);
+
+        // When
+        BigDecimal result = engine.calculateFinalPrice(standaloneContext);
+
+        // Then
+        assertEquals(standaloneExpectedPrice, result);
     }
 
     @Test
@@ -46,9 +55,9 @@ class PricingRuleEngineTest {
         Runnable calculate = () -> engine.calculateFinalPrice(null);
 
         // Then
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, calculate::run);
-        assertEquals(DomainMessages.pricingContextRequired(), exception.getMessage());
+        PricingException exception =
+                assertThrows(PricingException.class, calculate::run);
+        assertEquals(PricingMessages.pricingContextRequired(), exception.getMessage());
     }
 
     @Test
@@ -61,9 +70,9 @@ class PricingRuleEngineTest {
         Runnable createEngine = () -> new PricingRuleEngine(rules, BigDecimal.ZERO);
 
         // Then
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, createEngine::run);
-        assertEquals(DomainMessages.pricingRulesRequired(), exception.getMessage());
+        PricingException exception =
+                assertThrows(PricingException.class, createEngine::run);
+        assertEquals(PricingMessages.pricingRulesRequired(), exception.getMessage());
     }
 
     @Test
@@ -77,9 +86,9 @@ class PricingRuleEngineTest {
         Runnable createEngine = () -> new PricingRuleEngine(rules, BigDecimal.ZERO);
 
         // Then
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, createEngine::run);
-        assertEquals(DomainMessages.pricingRuleRequired(), exception.getMessage());
+        PricingException exception =
+                assertThrows(PricingException.class, createEngine::run);
+        assertEquals(PricingMessages.pricingRuleRequired(), exception.getMessage());
     }
 
     @Test
@@ -92,9 +101,9 @@ class PricingRuleEngineTest {
         Runnable createEngine = () -> new PricingRuleEngine(List.of(), minimumPrice);
 
         // Then
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, createEngine::run);
-        assertEquals(DomainMessages.negativeMinimumPrice(), exception.getMessage());
+        PricingException exception =
+                assertThrows(PricingException.class, createEngine::run);
+        assertEquals(PricingMessages.negativeMinimumPrice(), exception.getMessage());
     }
 
     @Test
@@ -107,9 +116,9 @@ class PricingRuleEngineTest {
         Runnable createEngine = () -> new PricingRuleEngine(List.of(), minimumPrice);
 
         // Then
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, createEngine::run);
-        assertEquals(DomainMessages.minimumPriceRequired(), exception.getMessage());
+        PricingException exception =
+                assertThrows(PricingException.class, createEngine::run);
+        assertEquals(PricingMessages.minimumPriceRequired(), exception.getMessage());
     }
 
     @Test
@@ -123,9 +132,57 @@ class PricingRuleEngineTest {
         Runnable calculate = () -> engine.calculateFinalPrice(context);
 
         // Then
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, calculate::run);
-        assertEquals(DomainMessages.pricingRuleResultRequired(), exception.getMessage());
+        PricingException exception =
+                assertThrows(PricingException.class, calculate::run);
+        assertEquals(PricingMessages.pricingRuleResultRequired(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects a null labor total in a pricing context")
+    void rejectsNullLaborTotal() {
+        // When
+        Runnable createContext = () ->
+                new PricingContext(null, BigDecimal.ZERO, false, sampleCarYear);
+
+        // Then
+        PricingException exception = assertThrows(PricingException.class, createContext::run);
+        assertEquals(PricingMessages.laborTotalRequired(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects a null parts total in a pricing context")
+    void rejectsNullPartsTotal() {
+        // When
+        Runnable createContext = () ->
+                new PricingContext(BigDecimal.ZERO, null, false, sampleCarYear);
+
+        // Then
+        PricingException exception = assertThrows(PricingException.class, createContext::run);
+        assertEquals(PricingMessages.partsTotalRequired(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects a negative labor total in a pricing context")
+    void rejectsNegativeLaborTotal() {
+        // When
+        Runnable createContext = () ->
+                new PricingContext(negativeTotal, BigDecimal.ZERO, false, sampleCarYear);
+
+        // Then
+        PricingException exception = assertThrows(PricingException.class, createContext::run);
+        assertEquals(PricingMessages.negativeLaborTotal(), exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Rejects a negative parts total in a pricing context")
+    void rejectsNegativePartsTotal() {
+        // When
+        Runnable createContext = () ->
+                new PricingContext(BigDecimal.ZERO, negativeTotal, false, sampleCarYear);
+
+        // Then
+        PricingException exception = assertThrows(PricingException.class, createContext::run);
+        assertEquals(PricingMessages.negativePartsTotal(), exception.getMessage());
     }
 
     @Test

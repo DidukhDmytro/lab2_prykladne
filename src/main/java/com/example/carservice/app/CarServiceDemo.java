@@ -98,7 +98,7 @@ public class CarServiceDemo {
     private static String interiorCleaningLabel = "Interior cleaning gift tier";
     private static String voucherLabel = "Discount voucher gift tier";
     private static String minimumPriceLabel = "100% discount with minimum price";
-    private static String oldCarDiscountLabel = "Old-car discount (5%)";
+    private static String oldCarDiscountLabelFormat = "Old-car discount (%s%%)";
     private static String fixedThenPercentLabel = "Fixed discount, then percentage discount";
     private static String percentThenFixedLabel = "Percentage discount, then fixed discount";
     private static String customStageLabel = "Custom surcharge stage before percentage discount";
@@ -125,6 +125,7 @@ public class CarServiceDemo {
     private static BigDecimal minimumScenarioPartsCost = new BigDecimal("10.00");
     private static BigDecimal minimumScenarioLaborCost = new BigDecimal("10.00");
     private static BigDecimal discountPercent = new BigDecimal("10");
+    private static BigDecimal oldCarDiscountPercent = new BigDecimal("5");
     private static BigDecimal fullDiscountPercent = new BigDecimal("100");
     private static BigDecimal fixedDiscountAmount = new BigDecimal("100.00");
     private static BigDecimal customSurchargeAmount = new BigDecimal("25.00");
@@ -243,11 +244,11 @@ public class CarServiceDemo {
     private static void runRuleExtensionScenario(RepairOrder normalOrder) {
         System.out.println(String.format(scenarioHeadingFormat, extensionHeading));
         PriceCalculator oldCarCalculator = new PriceCalculator(
-                List.of(new OldCarDiscountRule(currentYear, oldCarAgeLimit, discountPercent)),
+                List.of(new OldCarDiscountRule(currentYear, oldCarAgeLimit, oldCarDiscountPercent)),
                 AppConstants.minimumPrice());
         System.out.println(String.format(
                 priceScenarioFormat,
-                oldCarDiscountLabel,
+                String.format(oldCarDiscountLabelFormat, oldCarDiscountPercent),
                 oldCarCalculator.calculateFinalPrice(normalOrder)));
     }
 

@@ -1,7 +1,5 @@
 package com.example.carservice.pricing;
 
-import com.example.carservice.exception.DomainMessages;
-import com.example.carservice.exception.InvalidArgumentException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
@@ -13,7 +11,7 @@ import java.util.List;
  *
  * <p>Inputs must include a non-null context, a non-null rule list with no null elements, and a
  * minimum price greater than or equal to zero. Rules must return non-null amounts. The engine
- * rejects invalid inputs with {@link InvalidArgumentException} and never returns {@code null}.</p>
+ * rejects invalid inputs with {@link PricingException} and never returns {@code null}.</p>
  *
  * <p>The final-price result has scale two and uses {@link RoundingMode#HALF_UP}, rounded exactly
  * once at the end. Negative rule results are clamped to zero before the minimum price is applied,
@@ -35,17 +33,17 @@ public class PricingRuleEngine {
 
     public PricingRuleEngine(List<PricingRule> rules, BigDecimal minimumPrice) {
         if (rules == null) {
-            throw new InvalidArgumentException(DomainMessages.pricingRulesRequired());
+            throw new PricingException(PricingMessages.pricingRulesRequired());
         }
         if (minimumPrice == null) {
-            throw new InvalidArgumentException(DomainMessages.minimumPriceRequired());
+            throw new PricingException(PricingMessages.minimumPriceRequired());
         }
         if (minimumPrice.compareTo(zeroPrice) < 0) {
-            throw new InvalidArgumentException(DomainMessages.negativeMinimumPrice());
+            throw new PricingException(PricingMessages.negativeMinimumPrice());
         }
         this.rules = new ArrayList<>(rules);
         if (this.rules.contains(null)) {
-            throw new InvalidArgumentException(DomainMessages.pricingRuleRequired());
+            throw new PricingException(PricingMessages.pricingRuleRequired());
         }
         this.rules.sort(Comparator.comparingInt(PricingRule::getPriority));
         this.minimumPrice = minimumPrice;
@@ -64,7 +62,7 @@ public class PricingRuleEngine {
         for (PricingRule rule : rules) {
             total = rule.apply(context, total);
             if (total == null) {
-                throw new InvalidArgumentException(DomainMessages.pricingRuleResultRequired());
+                throw new PricingException(PricingMessages.pricingRuleResultRequired());
             }
         }
         return total.max(zeroPrice).max(minimumPrice).setScale(priceScale, RoundingMode.HALF_UP);
@@ -72,7 +70,7 @@ public class PricingRuleEngine {
 
     private void validateContext(PricingContext context) {
         if (context == null) {
-            throw new InvalidArgumentException(DomainMessages.pricingContextRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired());
         }
     }
 }

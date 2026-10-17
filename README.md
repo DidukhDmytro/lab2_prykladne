@@ -56,7 +56,9 @@ src/
   gifts by parts total.
 - **Pricing:** `PricingRuleEngine` applies `PricingRule`s to a non-null `PricingContext` in ascending
   priority order. It requires a non-null rule list without null elements, a non-negative minimum
-  price, and non-null results from every rule; invalid input raises `InvalidArgumentException`.
+  price, and non-null results from every rule; invalid input raises `PricingException`.
+  `PricingContext` can be created directly from pricing totals and flags without a `RepairOrder`,
+  and the engine can run independently of the service domain.
   Negative rule results are clamped to zero before applying the minimum price. The result is never
   null or below the minimum and is rounded exactly once at the end to scale 2 using
   `RoundingMode.HALF_UP`. The engine does not mutate inputs, copies and sorts the rules once at
@@ -64,8 +66,8 @@ src/
   stateless and deterministic. Fixed and percentage discounts are order-sensitive because fixed
   discounts subtract an amount before/after percentage scaling; two percentage discounts commute
   because each scales the total by a factor, and multiplying those factors gives the same result
-  in either order. `PricingPolicy` is the service-facing abstraction, and `PricingContext` is the
-  only pricing type that maps data from `RepairOrder`.
+  in either order. `PricingPolicy` is the service-facing abstraction, and `PriceCalculator` adapts
+  `RepairOrder` data into `PricingContext`.
 - **Missing orders:** repository lookups return `Optional.empty()` when no order is found.
   `RepairOrderService` converts that result to `EntityNotFoundException` when an order is required.
 

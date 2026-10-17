@@ -10,9 +10,6 @@ import com.example.carservice.domain.MechanicSpecialization;
 import com.example.carservice.domain.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
-import com.example.carservice.exception.DomainMessages;
-import com.example.carservice.exception.InvalidArgumentException;
-import com.example.carservice.pricing.PricingContext;
 import com.example.carservice.pricing.PricingRule;
 import com.example.carservice.pricing.rule.PercentageDiscountRule;
 import com.example.carservice.pricing.rule.UrgentSurchargeRule;
@@ -108,12 +105,12 @@ class PriceCalculatorTest {
         BigDecimal minimumPrice = new BigDecimal("-0.01");
 
         // When
-        InvalidArgumentException exception = assertThrows(
-                InvalidArgumentException.class,
+        PricingException exception = assertThrows(
+                PricingException.class,
                 () -> new PriceCalculator(List.of(), minimumPrice));
 
         // Then
-        assertEquals(DomainMessages.negativeMinimumPrice(), exception.getMessage());
+        assertEquals(PricingMessages.negativeMinimumPrice(), exception.getMessage());
     }
 
     @ParameterizedTest(name = "parts {0}, labor {1}, then parts {2}, labor {3} gives {4}")

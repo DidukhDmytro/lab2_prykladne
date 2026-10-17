@@ -11,10 +11,10 @@ import com.example.carservice.domain.MechanicSpecialization;
 import com.example.carservice.domain.OrderPriority;
 import com.example.carservice.domain.RepairOrder;
 import com.example.carservice.domain.ServiceWork;
-import com.example.carservice.exception.DomainMessages;
-import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.pricing.PriceCalculator;
 import com.example.carservice.pricing.PricingContext;
+import com.example.carservice.pricing.PricingException;
+import com.example.carservice.pricing.PricingMessages;
 import com.example.carservice.pricing.PricingRule;
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -69,7 +69,7 @@ class PricingRuleTest {
         Runnable constructRule = () -> new PercentageDiscountRule(value);
 
         // Then
-        assertThrows(InvalidArgumentException.class, constructRule::run);
+        assertThrows(PricingException.class, constructRule::run);
     }
 
     @ParameterizedTest(name = "fixed discount {0} leaves {1}")
@@ -98,7 +98,7 @@ class PricingRuleTest {
         Runnable constructRule = () -> new FixedDiscountRule(amount);
 
         // Then
-        assertThrows(InvalidArgumentException.class, constructRule::run);
+        assertThrows(PricingException.class, constructRule::run);
     }
 
     @Test
@@ -151,12 +151,12 @@ class PricingRuleTest {
         BigDecimal nullFactor = null;
 
         // When
-        InvalidArgumentException exception = assertThrows(
-                InvalidArgumentException.class,
+        PricingException exception = assertThrows(
+                PricingException.class,
                 () -> new UrgentSurchargeRule(nullFactor));
 
         // Then
-        assertEquals(DomainMessages.urgentSurchargeFactorRequired(), exception.getMessage());
+        assertEquals(PricingMessages.urgentSurchargeFactorRequired(), exception.getMessage());
     }
 
     @Test
@@ -166,12 +166,12 @@ class PricingRuleTest {
         BigDecimal negativeFactor = new BigDecimal("-0.01");
 
         // When
-        InvalidArgumentException exception = assertThrows(
-                InvalidArgumentException.class,
+        PricingException exception = assertThrows(
+                PricingException.class,
                 () -> new UrgentSurchargeRule(negativeFactor));
 
         // Then
-        assertEquals(DomainMessages.invalidUrgentSurchargeFactor(), exception.getMessage());
+        assertEquals(PricingMessages.invalidUrgentSurchargeFactor(), exception.getMessage());
     }
 
     @ParameterizedTest
@@ -183,11 +183,11 @@ class PricingRuleTest {
                 new OldCarDiscountRule(invalidYear, 10, discountPercent);
 
         // When
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, constructRule::run);
+        PricingException exception =
+                assertThrows(PricingException.class, constructRule::run);
 
         // Then
-        assertEquals(DomainMessages.oldCarCurrentYearRequired(), exception.getMessage());
+        assertEquals(PricingMessages.oldCarCurrentYearRequired(), exception.getMessage());
     }
 
     @Test
@@ -198,11 +198,11 @@ class PricingRuleTest {
                 new OldCarDiscountRule(2031, -1, discountPercent);
 
         // When
-        InvalidArgumentException exception =
-                assertThrows(InvalidArgumentException.class, constructRule::run);
+        PricingException exception =
+                assertThrows(PricingException.class, constructRule::run);
 
         // Then
-        assertEquals(DomainMessages.oldCarAgeLimitInvalid(), exception.getMessage());
+        assertEquals(PricingMessages.oldCarAgeLimitInvalid(), exception.getMessage());
     }
 
     @ParameterizedTest(name = "year {0} produces {2} for a {1}-year-old car")
@@ -218,7 +218,12 @@ class PricingRuleTest {
                 new OldCarDiscountRule(injectedYear, ageLimit, discountPercent);
 
         // When
-        BigDecimal result = rule.apply(PricingContext.from(order), order.calculateBaseTotal());
+        PricingContext context = new PricingContext(
+                order.calculateLaborTotal(),
+                order.calculatePartsTotal(),
+                order.getPriority() == OrderPriority.URGENT,
+                order.getCar().getYear());
+        BigDecimal result = rule.apply(context, order.calculateBaseTotal());
 
         // Then
         assertEquals(new BigDecimal(expected), result);

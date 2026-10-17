@@ -1,19 +1,17 @@
 package com.example.carservice.app;
 
-import com.example.carservice.exception.DomainMessages;
-import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.pricing.PricingContext;
+import com.example.carservice.pricing.PricingException;
+import com.example.carservice.pricing.PricingMessages;
 import com.example.carservice.pricing.PricingRule;
 import java.math.BigDecimal;
 
 public class DemonstrationSurchargeRule implements PricingRule {
-    private static String amountRequiredMessage = "Demonstration surcharge amount is required.";
-
     private BigDecimal amount;
 
     public DemonstrationSurchargeRule(BigDecimal amount) {
         if (amount == null) {
-            throw new InvalidArgumentException(amountRequiredMessage);
+            throw new PricingException(PricingMessages.demonstrationSurchargeAmountRequired());
         }
         this.amount = amount;
     }
@@ -26,7 +24,7 @@ public class DemonstrationSurchargeRule implements PricingRule {
     @Override
     public BigDecimal apply(PricingContext context, BigDecimal currentTotal) {
         if (context == null || currentTotal == null) {
-            throw new InvalidArgumentException(DomainMessages.pricingOrderRequired());
+            throw new PricingException(PricingMessages.pricingContextRequired());
         }
         return currentTotal.add(amount);
     }
