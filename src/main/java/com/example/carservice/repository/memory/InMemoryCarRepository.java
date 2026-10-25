@@ -5,12 +5,12 @@ import com.example.carservice.exception.EntityAlreadyExistsException;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.CarRepository;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 public class InMemoryCarRepository implements CarRepository {
-    private Map<String, Car> carsByVin = new LinkedHashMap<>();
+    private Map<String, Car> carsByVin = new HashMap<>();
 
     @Override
     public Car save(Car car) {

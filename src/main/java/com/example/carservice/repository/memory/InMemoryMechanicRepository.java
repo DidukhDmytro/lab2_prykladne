@@ -4,12 +4,12 @@ import com.example.carservice.domain.Mechanic;
 import com.example.carservice.exception.InvalidArgumentException;
 import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.MechanicRepository;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 
 public class InMemoryMechanicRepository implements MechanicRepository {
-    private Map<String, Mechanic> mechanics = new LinkedHashMap<>();
+    private Map<String, Mechanic> mechanics = new HashMap<>();
 
     @Override
     public Mechanic save(Mechanic mechanic) {

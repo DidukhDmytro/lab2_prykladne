@@ -7,13 +7,13 @@ import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.RepairOrderRepository;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public class InMemoryRepairOrderRepository implements RepairOrderRepository {
-    private Map<String, RepairOrder> orders = new LinkedHashMap<>();
+    private Map<String, RepairOrder> orders = new HashMap<>();
 
     @Override
     public RepairOrder save(RepairOrder order) {

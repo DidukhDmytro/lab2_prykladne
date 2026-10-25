@@ -6,13 +6,13 @@ import com.example.carservice.exception.ServiceMessages;
 import com.example.carservice.repository.CustomerRepository;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.LinkedHashMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
 public class InMemoryCustomerRepository implements CustomerRepository {
-    private Map<String, Customer> customers = new LinkedHashMap<>();
+    private Map<String, Customer> customers = new HashMap<>();
 
     @Override
     public Customer save(Customer customer) {
