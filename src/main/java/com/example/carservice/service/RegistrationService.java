@@ -11,11 +11,18 @@ import com.example.carservice.repository.CarRepository;
 import com.example.carservice.repository.CustomerRepository;
 import com.example.carservice.repository.MechanicRepository;
 
+/**
+ * Registers customers, cars, and mechanics.
+ */
 public class RegistrationService {
     private CarRepository carRepository;
     private MechanicRepository mechanicRepository;
     private CustomerRepository customerRepository;
 
+    /**
+     * Creates a service using the supplied repositories.
+     * @throws InvalidArgumentException if any repository is null
+     */
     public RegistrationService(
             CustomerRepository customerRepository,
             CarRepository carRepository,
@@ -28,6 +35,10 @@ public class RegistrationService {
         this.mechanicRepository = mechanicRepository;
     }
 
+    /**
+     * Registers a customer if its id is not already stored.
+     * @throws InvalidArgumentException if customer is null; EntityAlreadyExistsException if its id exists
+     */
     public Customer registerCustomer(Customer customer) {
         if (customer == null) {
             throw new InvalidArgumentException(ServiceMessages.entityRequired());
@@ -39,6 +50,10 @@ public class RegistrationService {
         return customerRepository.save(customer);
     }
 
+    /**
+     * Registers a car whose owner is already registered.
+     * @throws InvalidArgumentException if car is null; EntityNotFoundException if its owner is missing; EntityAlreadyExistsException if its VIN exists
+     */
     public Car registerCar(Car car) {
         if (car == null) {
             throw new InvalidArgumentException(ServiceMessages.repositoryCarRequired());
@@ -50,6 +65,10 @@ public class RegistrationService {
         return carRepository.save(car);
     }
 
+    /**
+     * Stores a mechanic; an existing id is replaced.
+     * @throws InvalidArgumentException if mechanic is null
+     */
     public Mechanic registerMechanic(Mechanic mechanic) {
         return mechanicRepository.save(mechanic);
     }

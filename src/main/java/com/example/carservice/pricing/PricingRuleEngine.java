@@ -16,13 +16,14 @@ import java.util.List;
  * <p>The final-price result has scale two and uses {@link RoundingMode#HALF_UP}, rounded exactly
  * once at the end. Negative rule results are clamped to zero before the minimum price is applied,
  * so the final result is never below the minimum price. Base-price calculation returns the
- * context totals without applying rules or the minimum price, rounded to scale two.
+ * context totals without applying rules or the minimum price, rounded to scale two.</p>
  *
  * <p>The engine does not mutate input data and defensively copies and sorts the rule list once
- * during construction; equal-priority rules retain insertion order.
+ * during construction; equal-priority rules retain the order in which they were passed (stable
+ * sort).</p>
  *
  * <p>The engine is stateless. Repeated calls with equal contexts return equal results when all
- * rules are stateless and deterministic.
+ * rules are stateless and deterministic.</p>
  */
 public class PricingRuleEngine {
     private static int priceScale = 2;

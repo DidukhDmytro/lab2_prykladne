@@ -10,7 +10,8 @@ import java.util.Optional;
  *
  * <p>Saving an order with an existing identifier replaces the stored order. Lookup methods return
  * {@link Optional#empty()} when no matching order exists and never throw merely because an order
- * is missing.</p>
+ * is missing. {@link #findAll()} and {@link #findByStatus(OrderStatus)} return unmodifiable lists
+ * whose order is unspecified.</p>
  */
 public interface RepairOrderRepository {
     RepairOrder save(RepairOrder order);

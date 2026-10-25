@@ -47,13 +47,17 @@ src/
 - **Domain:** `RepairOrder`, `ServiceWork`, `Mechanic`, `Car`, and `Customer` model the business
   state and enforce their own invariants and allowed state transitions.
 - **Repository:** interfaces define storage operations; `repository.memory` provides
-  `LinkedHashMap` implementations for `CustomerRepository`, `CarRepository`,
+  `HashMap` implementations for `CustomerRepository`, `CarRepository`,
   `MechanicRepository`, and `RepairOrderRepository`. Services depend on these interfaces, so
   application behavior is independent of storage details and repositories can be replaced or
-  mocked.
+  mocked. In-memory `findAll()` and `findByStatus()` calls return unmodifiable copies in
+  unspecified order; callers must not rely on the order. Saving a customer, mechanic, or repair
+  order with an existing id replaces its stored entry. In contrast, `InMemoryCarRepository.save`
+  throws `EntityAlreadyExistsException` when the VIN already exists.
 - **Service:** `RepairOrderService` coordinates repository access and domain operations.
   `RegistrationService` handles customer, car, and mechanic registration, and `GiftPolicy` selects
-  gifts by parts total.
+  gifts by parts total. `RegistrationService.registerMechanic` does not check for duplicate
+  mechanic ids; saving an existing id replaces its stored entry.
 - **Pricing:** `PricingRuleEngine` applies `PricingRule`s to a non-null `PricingContext` in ascending
   priority order. It requires a non-null rule list without null elements, a non-negative minimum
   price, and non-null results from every rule; invalid input raises `PricingException`.
@@ -67,9 +71,23 @@ src/
   discounts subtract an amount before/after percentage scaling; two percentage discounts commute
   because each scales the total by a factor, and multiplying those factors gives the same result
   in either order. `PricingPolicy` is the service-facing abstraction, and `PriceCalculator` adapts
-  `RepairOrder` data into `PricingContext`.
+  `RepairOrder` data into `PricingContext`. `PricingException` extends
+  `IllegalArgumentException`, not `DomainException`, so pricing errors are not caught by handlers
+  that catch only `DomainException`.
 - **Missing orders:** repository lookups return `Optional.empty()` when no order is found.
   `RepairOrderService` converts that result to `EntityNotFoundException` when an order is required.
+
+## Design rationale
+
+- `RepairOrderRepository` and `PricingPolicy`/`PricingRule` invert dependencies, allow storage and
+  pricing implementations to be replaced, and support mocks in tests; new pricing rules can be
+  added without changing the engine.
+- `GiftPolicy` has no interface because it is a small, single implementation with no current need
+  for interchangeable policies.
+- Services call `repository.save()` after each domain operation to preserve the persistence boundary
+  for replaceable repositories, even though the in-memory repository holds the same object instance.
+- `OldCarDiscountRule` receives the current year in its constructor so its age calculation is
+  deterministic in tests.
 
 ## Business rules
 
@@ -87,8 +105,8 @@ src/
 | Individual work can be completed only on an in-progress order and only at a valid work-list index | `RepairOrder.completeWork` |
 | Completion requires an in-progress order and all work completed; completing or cancelling releases its mechanic | `RepairOrder.complete` and `RepairOrder.cancel` |
 | Completed or cancelled orders cannot be modified | `RepairOrder` modification operations |
-| Duplicate customer ids, car VINs, and repair-order ids are rejected by registration/service operations | `RegistrationService.registerCustomer`, `InMemoryCarRepository`, and `RepairOrderService.createOrder` |
-| Saving a mechanic or repair order directly to its repository replaces an entry with the same id | In-memory repository `save` operations |
+| Duplicate customer ids, car VINs, and repair-order ids are rejected | `RegistrationService.registerCustomer`, `InMemoryCarRepository.save`, and `RepairOrderService.createOrder` |
+| Saving a customer, mechanic, or repair order with an existing id replaces its stored entry | In-memory repository `save` operations; `RegistrationService.registerMechanic` does not check duplicates |
 | A car can be registered only when its owner is a registered customer | `RegistrationService.registerCar` |
 | Urgent priority adds a surcharge to labor only | `UrgentSurchargeRule` |
 | Parts-total gift tiers select washer fluid, interior cleaning, or a discount voucher | `GiftPolicy` |
